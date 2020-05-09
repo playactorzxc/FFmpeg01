@@ -1,0 +1,92 @@
+﻿【五】Ubuntu中交叉编译ffmpeg4.1到armeabi-v7a平台
+	①目的: 
+		1.支持h264编码, 
+		2.支持acc编码
+		3.支持硬解码
+		4.支持rtmp,flv
+	②准备材料
+		android-ndk-r14b-linux-x86_64.zip
+		ffmpeg-4.1.tar.bz2
+		last_x264.tar.bz2
+	-----------------------------------------------------------------------------------------
+	③先编译x264库(编译ffmpeg是需要用到)
+		1.解压android-ndk-r14b和last_x264
+		2.进入x264解压目录,执行脚本
+			#!/bin/bash
+			export NDK=/work/system/ffmpeg/android-ndk-r14b
+			export PLATFORM=$NDK/platforms/android-21/arch-arm
+			export TOOLCHAIN=$NDK/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64
+			export CPU=arm7-a
+			export PREFIX=$PWD/$CPU
+			./configure \
+					--prefix=$PREFIX \
+					--enable-static  \
+					--enable-pic \
+					--enable-strip \
+					--host=arm-linux-androideabi \
+					--cross-prefix=$TOOLCHAIN/bin/arm-linux-androideabi- \
+					--sysroot=$PLATFORM \
+					--extra-cflags="-Os -fPIC" \
+					--extra-ldflags=""
+		3.make -j4 
+		  make install
+		4.编译得到静态库和头文件
+		
+	-----------------------------------------------------------------------------------------
+	④编译ffmpeg4.1
+		1.进入ffmpeg解压目录,
+		2.修改ffmpeg源代码, 注释掉下面注释的这段代码
+		
+			vi libavformat/udp.c +290
+				#if 0   // zhp
+						mreqs.imr_multiaddr.s_addr = ((struct sockaddr_in *)addr)->sin_addr.s_addr;
+						if (local_addr)
+							mreqs.imr_interface= ((struct sockaddr_in *)local_addr)->sin_addr;
+						else
+							mreqs.imr_interface.s_addr= INADDR_ANY;
+						mreqs.imr_sourceaddr.s_addr = ((struct sockaddr_in *)&sources[i])->sin_addr.s_addr;
+				#endif
+		3.然后执行脚本
+			export NDK=/work/system/ffmpeg/android-ndk-r14b
+			export PLATFORM=$NDK/platforms/android-21/arch-arm
+			export TOOLCHAIN=$NDK/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64
+			export CPU=arm7-a
+			export PREFIX=$PWD/$CPU
+			export x264PATH=/work/system/ffmpeg/x264-snapshot-20190808-2245/arm7-a
+			./configure \
+					--prefix=$PREFIX \
+					--target-os=android \
+					--cross-prefix=$TOOLCHAIN/bin/arm-linux-androideabi- \
+					--arch=arm \
+					--cpu=armv7-a \
+					--sysroot=$PLATFORM \
+					--extra-cflags="-I$PLATFORM/usr/include -I/$x264PATH/include -fPIC -DANDROID -mfpu=neon -mfloat-abi=softfp" \
+					--extra-ldflags="-L$x264PATH/lib" \
+					--cc=$TOOLCHAIN/bin/arm-linux-androideabi-gcc \
+					--nm=$TOOLCHAIN/bin/arm-linux-androideabi-nm \
+					--enable-shared \
+					--disable-static \
+					--enable-runtime-cpudetect \
+					--enable-gpl \
+					--enable-small \
+					--enable-cross-compile \
+					--enable-asm \
+					--enable-neon \
+					--enable-jni \
+					--enable-mediacodec \
+					--enable-decoder=h264_mediacodec \
+					--enable-libx264
+					--disable-doc \
+					--disable-ffmpeg \
+					--disable-ffplay \
+					--disable-avdevice \
+					--disable-symver \
+					--disable-stripping
+	4.make -j4
+	  make install
+	5.编译得到动态库可静态库  
+	
+	-----------------------------------------------------------------------------------------
+
+		
+		
